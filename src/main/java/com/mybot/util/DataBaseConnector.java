@@ -1,8 +1,7 @@
 package com.mybot.util;
 
-import telegram.CatBot;
+import com.mybot.bot.CatBot;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;

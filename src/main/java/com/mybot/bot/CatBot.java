@@ -1,4 +1,5 @@
-package telegram;
+package com.mybot.bot;
+import com.mybot.service.RandomCatPhotosService;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
@@ -36,10 +37,6 @@ public class CatBot extends TelegramLongPollingBot {
     private static String botToken = properties.getProperty("BOT_TOKEN");
     private static String botName = properties.getProperty("BOT_NAME");
 
-    private static String CAT_API_KEY = properties.getProperty("API_KEY");
-    private static final String CAT_API_URL = "https://api.thecatapi.com/v1/images/search";
-
-
     // Storage storage;
     @Override
     public String getBotUsername() {
@@ -61,7 +58,8 @@ public class CatBot extends TelegramLongPollingBot {
             if (text.equals("/start")) {
                 sendStartMessage(chatId);
             } else if (text.equals("Показать котят")) {
-                sendRandomCatPhoto(chatId);
+                RandomCatPhotosService catPhotosService = new RandomCatPhotosService(this);
+                catPhotosService.sendRandomCatPhoto(message.getChatId().toString());
             }
         }
     }
@@ -92,37 +90,6 @@ public class CatBot extends TelegramLongPollingBot {
         try {
             execute(sendMessage);
         } catch (TelegramApiException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void sendRandomCatPhoto(String chatId) {
-        OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder()
-                .url(CAT_API_URL)
-                .addHeader("x-api-key", CAT_API_KEY)
-                .get()
-                .build();
-
-        try {
-            Response response = client.newCall(request).execute();
-            String jsonData = response.body().string();
-            JsonParser parser = new JsonParser();
-            JsonObject jsonObject = parser.parse(jsonData).getAsJsonArray().get(0).getAsJsonObject();
-            String imageUrl = jsonObject.get("url").getAsString();
-            Request imageRequest = new Request.Builder().url(imageUrl).build();
-            Response imageResponse = client.newCall(imageRequest).execute();
-            InputStream inputStream = imageResponse.body().byteStream();
-            File tempFile = File.createTempFile("temp", ".jpg");
-            Files.copy(inputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-            SendPhoto sendPhoto = new SendPhoto();
-            sendPhoto.setChatId(chatId);
-            sendPhoto.setPhoto(new InputFile(tempFile));
-
-            execute(sendPhoto); // Отправка фото пользователю
-
-        } catch (Exception e) {
             e.printStackTrace();
         }
     }

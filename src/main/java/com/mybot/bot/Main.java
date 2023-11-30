@@ -1,10 +1,10 @@
 package com.mybot.bot;
 
+import com.mybot.bot.CatBot;
 import com.mybot.util.DataBaseConnector;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
-import telegram.CatBot;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
