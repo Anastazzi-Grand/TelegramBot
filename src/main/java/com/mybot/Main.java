@@ -1,4 +1,4 @@
-package com.mybot.bot;
+package com.mybot;
 
 import com.mybot.bot.CatBot;
 import com.mybot.util.DataBaseConnector;

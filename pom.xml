@@ -64,7 +64,7 @@
             <manifest>
               <addClasspath>true</addClasspath>
               <classpathPrefix>libs/</classpathPrefix>
-              <mainClass>com.mybot.bot.Main</mainClass>
+              <mainClass>com.mybot.Main</mainClass>
             </manifest>
           </archive>
           <descriptorRefs>

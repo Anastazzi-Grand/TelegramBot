@@ -71,9 +71,9 @@ public class RandomCatPhotosService {
         return sendPhoto;
     }
 
-    public void deleteTempFile(File file) {
+    public void deleteTempFile(File file) throws IOException {
         if (file.exists()) {
-            file.delete(); // Удаление временного файла
+            Files.deleteIfExists(file.toPath());
         }
     }
 }

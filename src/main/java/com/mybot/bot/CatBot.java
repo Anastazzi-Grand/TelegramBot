@@ -1,4 +1,6 @@
 package com.mybot.bot;
+import com.mybot.service.ConnectionService;
+import com.mybot.service.MemesAndCatsService;
 import com.mybot.service.RandomCatPhotosService;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -25,18 +27,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-public class CatBot extends TelegramLongPollingBot {
-    private RandomCatPhotosService randomCatPhotosService = new RandomCatPhotosService();
-    static Properties properties = new Properties();
+public class CatBot extends TelegramLongPollingBot implements ConnectionService {
     static {
-        try (InputStream inputStream = CatBot.class.getClassLoader().getResourceAsStream("config.properties")) {
-            properties.load(inputStream);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        ConnectionService.getConnect();
     }
-    private static String botToken = properties.getProperty("BOT_TOKEN");
-    private static String botName = properties.getProperty("BOT_NAME");
+    private static String botToken = ConnectionService.properties.getProperty("BOT_TOKEN");
+    private static String botName = ConnectionService.properties.getProperty("BOT_NAME");
+
+    private RandomCatPhotosService randomCatPhotosService = new RandomCatPhotosService();
+    private MemesAndCatsService memesAndCatsService = new MemesAndCatsService();
 
     // Storage storage;
     @Override
@@ -59,12 +58,18 @@ public class CatBot extends TelegramLongPollingBot {
             if (text.equals("/start")) {
                 sendStartMessage(chatId);
             } else if (text.equals("Показать котят")) {
-
                 try {
-                    SendPhoto sendPhoto  = randomCatPhotosService.sendRandomCatPhoto(message.getChatId().toString());
+                    SendPhoto sendPhoto = randomCatPhotosService.sendRandomCatPhoto(message.getChatId().toString());
                     execute(sendPhoto);
                     randomCatPhotosService.deleteTempFile(new File(String.valueOf(sendPhoto.getFile()))); // Удаление временного файла
                 } catch (IOException | TelegramApiException e) {
+                    throw new RuntimeException(e);
+                }
+            } else if (text.equals("Мемы и коты")) {
+                try {
+                    SendPhoto sendPhoto = memesAndCatsService.sendPhotoFromBD(message.getChatId().toString());
+                    execute(sendPhoto);
+                } catch (TelegramApiException e) {
                     throw new RuntimeException(e);
                 }
             }
@@ -80,16 +85,21 @@ public class CatBot extends TelegramLongPollingBot {
         ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
         replyKeyboardMarkup.setResizeKeyboard(true);
 
-        // Создаем ряд кнопок
+        // Создаем ряд для каждой кнопки
         List<KeyboardRow> keyboardRows = new ArrayList<>();
         KeyboardRow keyboardRow = new KeyboardRow();
-        keyboardRows.add(keyboardRow);
 
         // Создаем кнопку "Показать котят" и добавляем ее в ряд
         KeyboardButton showCatsButton = new KeyboardButton();
         showCatsButton.setText("Показать котят");
         keyboardRow.add(showCatsButton);
+        keyboardRows.add(keyboardRow);
 
+        keyboardRow = new KeyboardRow();
+        KeyboardButton showMemeAndCatsButton = new KeyboardButton();
+        showMemeAndCatsButton.setText("Мемы и коты");
+        keyboardRow.add(showMemeAndCatsButton);
+        keyboardRows.add(keyboardRow);
         // Устанавливаем клавиатуру в сообщение
         replyKeyboardMarkup.setKeyboard(keyboardRows);
         sendMessage.setReplyMarkup(replyKeyboardMarkup);
