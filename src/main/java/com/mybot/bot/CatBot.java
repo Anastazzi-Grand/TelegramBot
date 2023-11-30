@@ -55,23 +55,23 @@ public class CatBot extends TelegramLongPollingBot implements ConnectionService 
             String chatId = message.getChatId().toString();
             String text = message.getText();
 
-            if (text.equals("/start")) {
-                sendStartMessage(chatId);
-            } else if (text.equals("Показать котят")) {
-                try {
-                    SendPhoto sendPhoto = randomCatPhotosService.sendRandomCatPhoto(message.getChatId().toString());
+            // Вместо проверки text.equals("/start") можно обработать все сообщения
+            try {
+                SendPhoto sendPhoto = null;
+                if (text.equals("/start")) {
+                    sendStartMessage(chatId);
+                } else if (text.equals("Показать котят")) {
+                    sendPhoto = randomCatPhotosService.sendRandomCatPhoto(message.getChatId().toString());
+                } else if (text.equals("Мемы и коты")) {
+                    sendPhoto = memesAndCatsService.sendPhotoFromBD(message.getChatId().toString());
+                }
+
+                if (sendPhoto != null) {
                     execute(sendPhoto);
                     randomCatPhotosService.deleteTempFile(new File(String.valueOf(sendPhoto.getFile()))); // Удаление временного файла
-                } catch (IOException | TelegramApiException e) {
-                    throw new RuntimeException(e);
                 }
-            } else if (text.equals("Мемы и коты")) {
-                try {
-                    SendPhoto sendPhoto = memesAndCatsService.sendPhotoFromBD(message.getChatId().toString());
-                    execute(sendPhoto);
-                } catch (TelegramApiException e) {
-                    throw new RuntimeException(e);
-                }
+            } catch (IOException | TelegramApiException e) {
+                throw new RuntimeException(e);
             }
         }
     }
