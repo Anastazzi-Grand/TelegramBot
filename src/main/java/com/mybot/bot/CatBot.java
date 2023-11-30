@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Properties;
 
 public class CatBot extends TelegramLongPollingBot {
+    private RandomCatPhotosService randomCatPhotosService = new RandomCatPhotosService();
     static Properties properties = new Properties();
     static {
         try (InputStream inputStream = CatBot.class.getClassLoader().getResourceAsStream("config.properties")) {
@@ -58,8 +59,14 @@ public class CatBot extends TelegramLongPollingBot {
             if (text.equals("/start")) {
                 sendStartMessage(chatId);
             } else if (text.equals("Показать котят")) {
-                RandomCatPhotosService catPhotosService = new RandomCatPhotosService(this);
-                catPhotosService.sendRandomCatPhoto(message.getChatId().toString());
+
+                try {
+                    SendPhoto sendPhoto  = randomCatPhotosService.sendRandomCatPhoto(message.getChatId().toString());
+                    execute(sendPhoto);
+                    randomCatPhotosService.deleteTempFile(new File(String.valueOf(sendPhoto.getFile()))); // Удаление временного файла
+                } catch (IOException | TelegramApiException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
     }
@@ -71,7 +78,7 @@ public class CatBot extends TelegramLongPollingBot {
 
         // Создаем объект клавиатуры
         ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
-        replyKeyboardMarkup.setResizeKeyboard(true); // РџРѕРґРіРѕРЅСЏРµРј СЂР°Р·РјРµСЂ РєР»Р°РІРёР°С‚СѓСЂС‹
+        replyKeyboardMarkup.setResizeKeyboard(true);
 
         // Создаем ряд кнопок
         List<KeyboardRow> keyboardRows = new ArrayList<>();

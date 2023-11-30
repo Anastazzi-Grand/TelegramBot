@@ -22,11 +22,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.Properties;
 
 public class RandomCatPhotosService {
-    private TelegramLongPollingBot bot;
-
-    public RandomCatPhotosService(TelegramLongPollingBot bot) {
-        this.bot = bot;
-    }
     static Properties properties = new Properties();
     static {
         try (InputStream inputStream = CatBot.class.getClassLoader().getResourceAsStream("config.properties")) {
@@ -49,6 +44,7 @@ public class RandomCatPhotosService {
 
         Response response = client.newCall(request).execute();
         String jsonData = response.body().string();
+        System.out.println(jsonData);
         JsonParser parser = new JsonParser();
         JsonObject jsonObject = parser.parse(jsonData).getAsJsonArray().get(0).getAsJsonObject();
         return jsonObject.get("url").getAsString();
@@ -64,20 +60,20 @@ public class RandomCatPhotosService {
         return tempFile;
     }
 
-    public void sendRandomCatPhoto(String chatId) {
-        try {
-            String imageUrl = getRandomCatImageUrl();
-            File tempFile = downloadImageToFile(imageUrl);
+    public SendPhoto sendRandomCatPhoto(String chatId) throws IOException {
+        String imageUrl = getRandomCatImageUrl();
+        File tempFile = downloadImageToFile(imageUrl);
 
-            SendPhoto sendPhoto = new SendPhoto();
-            sendPhoto.setChatId(chatId);
-            sendPhoto.setPhoto(new InputFile(tempFile));
+        SendPhoto sendPhoto = new SendPhoto();
+        sendPhoto.setChatId(chatId);
+        sendPhoto.setPhoto(new InputFile(tempFile));
 
-            bot.execute(sendPhoto); // Отправка фото пользователю
+        return sendPhoto;
+    }
 
-            tempFile.delete(); // Удаление временного файла
-        } catch (Exception e) {
-            e.printStackTrace();
+    public void deleteTempFile(File file) {
+        if (file.exists()) {
+            file.delete(); // Удаление временного файла
         }
     }
 }
