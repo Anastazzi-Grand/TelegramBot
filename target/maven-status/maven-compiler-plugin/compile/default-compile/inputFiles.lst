@@ -1,2 +1,6 @@
-C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\Main.java
-C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\telegram\CatBot.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\util\DataBaseConnector.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\ConnectionService.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\Main.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\RandomCatPhotosService.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\bot\CatBot.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\MemesAndCatsService.java

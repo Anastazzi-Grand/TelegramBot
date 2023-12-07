@@ -6,19 +6,10 @@ import com.mybot.bot.CatBot;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-
-
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.Properties;
 
 public class RandomCatPhotosService {
@@ -49,31 +40,12 @@ public class RandomCatPhotosService {
         JsonObject jsonObject = parser.parse(jsonData).getAsJsonArray().get(0).getAsJsonObject();
         return jsonObject.get("url").getAsString();
     }
-
-    private File downloadImageToFile(String imageUrl) throws IOException {
-        OkHttpClient client = new OkHttpClient();
-        Request imageRequest = new Request.Builder().url(imageUrl).build();
-        Response imageResponse = client.newCall(imageRequest).execute();
-        InputStream inputStream = imageResponse.body().byteStream();
-        File tempFile = File.createTempFile("temp", ".jpg");
-        Files.copy(inputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        return tempFile;
-    }
-
     public SendPhoto sendRandomCatPhoto(String chatId) throws IOException {
         String imageUrl = getRandomCatImageUrl();
-        File tempFile = downloadImageToFile(imageUrl);
-
         SendPhoto sendPhoto = new SendPhoto();
         sendPhoto.setChatId(chatId);
-        sendPhoto.setPhoto(new InputFile(tempFile));
+        sendPhoto.setPhoto(new InputFile(imageUrl));
 
         return sendPhoto;
-    }
-
-    public void deleteTempFile(File file) throws IOException {
-        if (file.exists()) {
-            Files.deleteIfExists(file.toPath());
-        }
     }
 }

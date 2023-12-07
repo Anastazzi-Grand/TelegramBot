@@ -68,7 +68,6 @@ public class CatBot extends TelegramLongPollingBot implements ConnectionService 
 
                 if (sendPhoto != null) {
                     execute(sendPhoto);
-                    randomCatPhotosService.deleteTempFile(new File(String.valueOf(sendPhoto.getFile()))); // Удаление временного файла
                 }
             } catch (IOException | TelegramApiException e) {
                 throw new RuntimeException(e);

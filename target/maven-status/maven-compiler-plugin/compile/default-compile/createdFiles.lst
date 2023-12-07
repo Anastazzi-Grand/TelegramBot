@@ -1,2 +1,6 @@
-Main.class
-telegram\CatBot.class
+com\mybot\bot\CatBot.class
+com\mybot\util\DataBaseConnector.class
+com\mybot\service\ConnectionService.class
+com\mybot\Main.class
+com\mybot\service\RandomCatPhotosService.class
+com\mybot\service\MemesAndCatsService.class

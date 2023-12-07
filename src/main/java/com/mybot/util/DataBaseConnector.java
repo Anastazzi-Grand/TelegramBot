@@ -20,4 +20,18 @@ public class DataBaseConnector implements ConnectionService {
         return DriverManager.getConnection(url, user, password);
     }
 }
+/*
+ INSERT INTO memes_and_cats (image_path) VALUES
+ ('https://disk.yandex.ru/i/cZbvRlzPcw6NgA'),
+ ('https://disk.yandex.ru/i/KZmWCfGMcC2SYg'),
+ ('https://disk.yandex.ru/i/zljWNFco7XD9Kg'),
+ ('https://disk.yandex.ru/i/uQ3HOYCzc4VC1A'),
+ ('https://disk.yandex.ru/i/GlmiNGp-F1clcg'),
+ ('https://disk.yandex.ru/i/OuhS_kVzODMs9Q'),
+ ('https://disk.yandex.ru/i/ci6uLySUBRw-tA'),
+ ('https://disk.yandex.ru/i/iShCe5O5xrj5rQ'),
+ ('https://disk.yandex.ru/i/O4jm1F5XItrJVw'),
+ ('https://disk.yandex.ru/i/LN-_W3Ai_5L00Q');
+
+ */
 
