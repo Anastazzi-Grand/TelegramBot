@@ -1,14 +1,17 @@
 package com.mybot.bot;
-import com.mybot.service.ConnectionService;
-import com.mybot.service.MemesAndCatsService;
-import com.mybot.service.RandomCatPhotosService;
+import com.mybot.service.*;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -27,7 +30,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-public class CatBot extends TelegramLongPollingBot implements ConnectionService {
+/**
+ * Класс, определяющий внешний вид бота.
+ * */
+public class CatBot extends TelegramLongPollingBot {
+
+    /**
+     * Соединение с БД
+     * */
     static {
         ConnectionService.getConnect();
     }
@@ -37,7 +47,9 @@ public class CatBot extends TelegramLongPollingBot implements ConnectionService 
     private RandomCatPhotosService randomCatPhotosService = new RandomCatPhotosService();
     private MemesAndCatsService memesAndCatsService = new MemesAndCatsService();
 
-    // Storage storage;
+    private WeatherStateManager weatherStateManager = new WeatherStateManager();
+    private WeatherService weatherService = new WeatherService(weatherStateManager);
+
     @Override
     public String getBotUsername() {
         return botName;
@@ -58,12 +70,36 @@ public class CatBot extends TelegramLongPollingBot implements ConnectionService 
             // Вместо проверки text.equals("/start") можно обработать все сообщения
             try {
                 SendPhoto sendPhoto = null;
-                if (text.equals("/start")) {
-                    sendStartMessage(chatId);
-                } else if (text.equals("Показать котят")) {
-                    sendPhoto = randomCatPhotosService.sendRandomCatPhoto(message.getChatId().toString());
-                } else if (text.equals("Мемы и коты")) {
-                    sendPhoto = memesAndCatsService.sendPhotoFromBD(message.getChatId().toString());
+                switch (text) {
+                    case "/start":
+                        sendStartMessage(chatId);
+                        break;
+                    case "Показать котят":
+                        sendPhoto = randomCatPhotosService.sendRandomCatPhoto(message.getChatId().toString());
+                        break;
+                    case "Мемы и коты":
+                        sendPhoto = memesAndCatsService.sendPhotoFromBD(message.getChatId().toString());
+                        break;
+                    case "/weather":
+                        System.out.println("WEATHER PRINTED");
+                        execute(weatherService.sendIntroduceMessage(chatId));
+                        break;
+                    default:
+                        if (weatherStateManager.isWaitingForLocation(chatId)) {
+                            String s = weatherService.sendWeatherMessage(chatId, message);
+                            System.out.println("CATBOT onUpdateReceived s = " + s);
+                            if (s.equals("INVALID")) {
+                                execute(weatherService.sendWarningMessage(chatId));
+                            } else { // Обработка успешно полученных координат
+                                execute(new SendMessage(chatId, s));
+                                System.out.println("ПОГОДА ИЗВЕСТНА КОНЕЦ ВЫПОЛНЕНИЯ КОМАНДЫ");
+                                weatherStateManager.setWaitingForLocation(chatId, false); // Устанавливаем состояние ожидания ввода в false
+                            }
+                        } else {
+                            // Обработка неизвестных команд
+                            execute(new SendMessage(chatId, "Неизвестная команда"));
+                        }
+                        break;
                 }
 
                 if (sendPhoto != null) {
@@ -75,6 +111,9 @@ public class CatBot extends TelegramLongPollingBot implements ConnectionService 
         }
     }
 
+    /**
+     * Метод для отправки изначального сообщения.
+     * */
     private void sendStartMessage(String chatId) {
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(chatId);
@@ -99,6 +138,7 @@ public class CatBot extends TelegramLongPollingBot implements ConnectionService 
         showMemeAndCatsButton.setText("Мемы и коты");
         keyboardRow.add(showMemeAndCatsButton);
         keyboardRows.add(keyboardRow);
+
         // Устанавливаем клавиатуру в сообщение
         replyKeyboardMarkup.setKeyboard(keyboardRows);
         sendMessage.setReplyMarkup(replyKeyboardMarkup);
@@ -109,4 +149,5 @@ public class CatBot extends TelegramLongPollingBot implements ConnectionService 
             e.printStackTrace();
         }
     }
+
 }

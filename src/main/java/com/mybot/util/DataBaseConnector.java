@@ -10,7 +10,14 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
+/**
+ * Класс для соединения с БД.
+ * */
 public class DataBaseConnector implements ConnectionService {
+
+    /**
+     * Метод устанавливает соединение с БД по ссылке, имени пользователя и паролю.
+     * */
     public static Connection getConnection() throws SQLException {
         ConnectionService.getConnect();
         String url = ConnectionService.properties.getProperty("db.url");

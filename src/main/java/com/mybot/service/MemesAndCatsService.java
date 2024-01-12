@@ -9,9 +9,16 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
+/**
+ * Класс, реализущий логику кнопки "Мемы и коты"
+ * */
 public class MemesAndCatsService {
 
     DataBaseConnector databaseConnector;
+
+    /**
+     * Метод соединяет с БД и возвращает рандомную ссылку на картинку типа String.
+     * */
     private String getRandomPhotoFromBD() {
         String photoUrl = null;
         try {
@@ -32,6 +39,11 @@ public class MemesAndCatsService {
         return photoUrl;
     }
 
+    /**
+     * Метод отправляет фото из БД
+     *
+     * @param chatId
+     * */
     public SendPhoto sendPhotoFromBD(String chatId) {
         SendPhoto sendPhoto = new SendPhoto();
         sendPhoto.setChatId(chatId);

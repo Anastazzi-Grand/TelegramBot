@@ -12,19 +12,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+
+/**
+ * Класс, реализующий логику для кнопки "Показать котят"
+ * */
 public class RandomCatPhotosService {
-    static Properties properties = new Properties();
     static {
-        try (InputStream inputStream = CatBot.class.getClassLoader().getResourceAsStream("config.properties")) {
-            properties.load(inputStream);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        ConnectionService.getConnect();
     }
 
-    private static String CAT_API_KEY = properties.getProperty("API_KEY");
+    private static String CAT_API_KEY = ConnectionService.properties.getProperty("API_KEY");
     private static final String CAT_API_URL = "https://api.thecatapi.com/v1/images/search";
 
+    /**
+     * Метод соединяет бота с сервисом CatApi по ключу и получает ссылку на фото через JSON-объект.
+     * */
     private String getRandomCatImageUrl() throws IOException {
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder()
@@ -40,6 +42,12 @@ public class RandomCatPhotosService {
         JsonObject jsonObject = parser.parse(jsonData).getAsJsonArray().get(0).getAsJsonObject();
         return jsonObject.get("url").getAsString();
     }
+
+    /**
+     * Метод отправляет полученное фото из сервиса.
+     *
+     * @param chatId
+     * */
     public SendPhoto sendRandomCatPhoto(String chatId) throws IOException {
         String imageUrl = getRandomCatImageUrl();
         SendPhoto sendPhoto = new SendPhoto();
