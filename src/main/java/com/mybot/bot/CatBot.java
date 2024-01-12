@@ -5,6 +5,7 @@ import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -50,6 +51,8 @@ public class CatBot extends TelegramLongPollingBot {
     private WeatherStateManager weatherStateManager = new WeatherStateManager();
     private WeatherService weatherService = new WeatherService(weatherStateManager);
 
+    private GoalsService goalsService = new GoalsService();
+
     @Override
     public String getBotUsername() {
         return botName;
@@ -62,7 +65,13 @@ public class CatBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        if (update.hasMessage() && update.getMessage().hasText()) {
+        if (update.hasCallbackQuery()) {
+            CallbackQuery callbackQuery = update.getCallbackQuery();
+            String chatId = callbackQuery.getMessage().getChatId().toString();
+            String callbackData = callbackQuery.getData();
+            goalsService.handleCallbackData(callbackData, chatId);
+        }
+        else if (update.hasMessage() && update.getMessage().hasText()) {
             Message message = update.getMessage();
             String chatId = message.getChatId().toString();
             String text = message.getText();
@@ -79,6 +88,10 @@ public class CatBot extends TelegramLongPollingBot {
                         break;
                     case "Мемы и коты":
                         sendPhoto = memesAndCatsService.sendPhotoFromBD(message.getChatId().toString());
+                        break;
+                    case "/goal":
+                        System.out.println("Выполнение команды цель");
+                        execute(sendGoalsPanel(chatId));
                         break;
                     case "/weather":
                         System.out.println("WEATHER PRINTED");
@@ -148,6 +161,47 @@ public class CatBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Метод для отображения кнопок при выборе команды /goal
+     * */
+    private SendMessage sendGoalsPanel(String chatId) {
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(chatId);
+        sendMessage.setText("Здесь вы можете хранить свои цели или планы на будущее. Выберите одну из команд ниже для редактирования целей.");
+
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+
+        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+
+        List<InlineKeyboardButton> rowInline1 = new ArrayList<>();
+        InlineKeyboardButton inlineKeyboardButton1 = new InlineKeyboardButton();
+        inlineKeyboardButton1.setText("Добавить");
+        inlineKeyboardButton1.setCallbackData("/push");
+        InlineKeyboardButton inlineKeyboardButton2 = new InlineKeyboardButton();
+        inlineKeyboardButton2.setText("Просмотреть");
+        inlineKeyboardButton2.setCallbackData("/get");
+        rowInline1.add(inlineKeyboardButton1);
+        rowInline1.add(inlineKeyboardButton2);
+
+        List<InlineKeyboardButton> rowInline2 = new ArrayList<>();
+        InlineKeyboardButton inlineKeyboardButton3 = new InlineKeyboardButton();
+        inlineKeyboardButton3.setText("Редактировать");
+        inlineKeyboardButton3.setCallbackData("/update");
+        InlineKeyboardButton inlineKeyboardButton4 = new InlineKeyboardButton();
+        inlineKeyboardButton4.setText("Удалить");
+        inlineKeyboardButton4.setCallbackData("/delete");
+        rowInline2.add(inlineKeyboardButton3);
+        rowInline2.add(inlineKeyboardButton4);
+
+        rowsInline.add(rowInline1);
+        rowsInline.add(rowInline2);
+
+        markup.setKeyboard(rowsInline);
+        sendMessage.setReplyMarkup(markup);
+
+        return sendMessage;
     }
 
 }
