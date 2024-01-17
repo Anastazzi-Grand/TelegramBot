@@ -9,15 +9,23 @@ public interface WaitingStateManager {
     /**
      * Метод для установки состояния ожидания ввода.
      *
-     * @param chatId
-     * @param waiting
+     * @param chatId Уникальный номер чата
+     * @param state Тип команды для ожидания сообщения
+     * @param waiting Состояние ожидания сообщения
      * */
-    void setWaiting(String chatId, boolean waiting);
+    void setWaiting(String chatId, CommandState state, boolean waiting);
 
     /**
      * Метод возвращает boolean значения проверки состояния ввода.
      *
-     * @param chatId
+     * @param chatId Уникальный номер чата
      * */
-    boolean isWaiting(String chatId);
+    boolean isWaiting(String chatId, CommandState state);
+
+    /**
+     * Обнуление состояния ожидания для всех команд.
+     *
+     * @param chatId Уникальный номер чата
+     * */
+    void nullStateWaiting(String chatId);
 }

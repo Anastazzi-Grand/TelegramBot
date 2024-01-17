@@ -1,7 +1,7 @@
 package com.mybot.bot;
 import com.mybot.service.*;
-import com.mybot.service.statemanager.GoalStateManager;
-import com.mybot.service.statemanager.WeatherStateManager;
+import com.mybot.service.statemanager.CommandState;
+import com.mybot.service.statemanager.CommandStateManager;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
@@ -34,11 +34,9 @@ public class CatBot extends TelegramLongPollingBot {
     private RandomCatPhotosService randomCatPhotosService = new RandomCatPhotosService();
     private MemesAndCatsService memesAndCatsService = new MemesAndCatsService();
 
-    private WeatherStateManager weatherStateManager = new WeatherStateManager();
-    private WeatherService weatherService = new WeatherService(weatherStateManager);
-
-    private GoalStateManager goalStateManager = new GoalStateManager();
-    private GoalsService goalsService = new GoalsService(goalStateManager);
+    private CommandStateManager commandStateManager = new CommandStateManager();
+    private WeatherService weatherService = new WeatherService(commandStateManager);
+    private GoalsService goalsService = new GoalsService(commandStateManager);
 
     @Override
     public String getBotUsername() {
@@ -60,33 +58,27 @@ public class CatBot extends TelegramLongPollingBot {
                 if (goalsService.checkBD(chatId)) {
                     switch (callbackData) {
                         case "/push":
-                            goalStateManager.setWaiting(chatId, true);
+                            commandStateManager.nullStateWaiting(chatId);
+                            commandStateManager.setWaiting(chatId, CommandState.PUSH,true);
                             execute(new SendMessage(chatId, "Отправьте сюда цель, которую хотите сохранить."));
-                            goalStateManager.setWaitingDelete(chatId, false);
-                            goalStateManager.setWaitingEdit(chatId, false);
-                            weatherStateManager.setWaiting(chatId, false);
                             break;
                         case "/get":
                             execute(new SendMessage(chatId, goalsService.getData(chatId)));
                             break;
                         case "/update":
+                            commandStateManager.nullStateWaiting(chatId);
                             execute(new SendMessage(chatId, "Отправьте номер цели и ее новое описание, который хотите обновить в формате [номер цели] [формулировка цели]. Например, \"4 Дочитать книгу\". Можно изменить только те цели, которые есть в списке:"));
                             execute(new SendMessage(chatId, goalsService.getData(chatId)));
-                            goalStateManager.setWaitingEdit(chatId, true);
-                            goalStateManager.setWaiting(chatId, false);
-                            goalStateManager.setWaitingDelete(chatId, false);
-                            weatherStateManager.setWaiting(chatId, false);
+                            commandStateManager.setWaiting(chatId, CommandState.UPDATE,true);
                             break;
                         case "/delete":
                             execute(sendDeleteGoalPanel(chatId));
                             break;
                         case "/deleteOne":
+                            commandStateManager.nullStateWaiting(chatId);
                             execute(new SendMessage(chatId, "Отправьте номер цели, который хотите удалить (например, \"4\". Можно удалить только те цели, которые есть в списке:"));
                             execute(new SendMessage(chatId, goalsService.getData(chatId)));
-                            goalStateManager.setWaitingDelete(chatId, true);
-                            goalStateManager.setWaiting(chatId, false);
-                            goalStateManager.setWaitingEdit(chatId, false);
-                            weatherStateManager.setWaiting(chatId, false);
+                            commandStateManager.setWaiting(chatId, CommandState.DELETE_ONE, true);
                             break;
                         case "/deleteAll":
                             execute(sendDeleteAllGoals(chatId));
@@ -102,7 +94,7 @@ public class CatBot extends TelegramLongPollingBot {
                 } else if (!callbackData.equals("/push")) {
                     execute(new SendMessage(chatId, "У вас еще нет записанных целей. Вы можете внести их с помощью кнопки \"Добавить\"."));
                 } else {
-                    goalStateManager.setWaiting(chatId, true);
+                    commandStateManager.setWaiting(chatId, CommandState.PUSH, true);
                     execute(new SendMessage(chatId, "Отправьте сюда цель, которую хотите сохранить."));
                 }
             } catch(TelegramApiException e){
@@ -129,47 +121,45 @@ public class CatBot extends TelegramLongPollingBot {
                         execute(sendGoalsPanel(chatId));
                         break;
                     case "/weather":
+                        commandStateManager.nullStateWaiting(chatId);
                         execute(weatherService.sendIntroduceMessage(chatId));
-                        goalStateManager.setWaitingDelete(chatId, false);
-                        goalStateManager.setWaiting(chatId, false);
-                        goalStateManager.setWaitingEdit(chatId, false);
                         break;
                     default:
-                        if (weatherStateManager.isWaiting(chatId)) {
+                        if (commandStateManager.isWaiting(chatId, CommandState.WEATHER)) {
                             String s = weatherService.sendWeatherMessage(chatId, message);
                             if (s.equals("INVALID")) {
                                 execute(weatherService.sendWarningMessage(chatId));
                             } else { // Обработка успешно полученных координат
                                 execute(new SendMessage(chatId, s));
-                                weatherStateManager.setWaiting(chatId, false); // Устанавливаем состояние ожидания ввода в false
+                                commandStateManager.setWaiting(chatId, CommandState.WEATHER, false); // Устанавливаем состояние ожидания ввода в false
                             }
-                        } else if (goalStateManager.isWaiting(chatId)) {
+                        } else if (commandStateManager.isWaiting(chatId, CommandState.PUSH)) {
                             // Обработка ожидания ввода цели после нажатия на кнопку "Добавить" (/push) команды /goal
                             goalsService.pushData(chatId, message); // Сохранить цель в базу данных
                             execute(new SendMessage(chatId, "Ваша цель успешно записана. Можете просмотреть свои цели, нажав на кнопку \"Просмотреть\"."));
-                            goalStateManager.setWaiting(chatId, false); // Установить состояние ожидания ввода цели в false
-                        } else if (goalStateManager.isWaitingEdit(chatId)){
+                            commandStateManager.setWaiting(chatId, CommandState.PUSH,false); // Установить состояние ожидания ввода цели в false
+                        } else if (commandStateManager.isWaiting(chatId, CommandState.UPDATE)){
                             if (goalsService.checkGoal(chatId, message)) {
                                 goalsService.updateData(chatId, message, message);
                                 execute(new SendMessage(chatId, "Цель успешно изменена! Можете убедиться в этом, нажав на кнопку \"Просмотреть\""));
-                                goalStateManager.setWaitingEdit(chatId, false);
+                                commandStateManager.setWaiting(chatId, CommandState.UPDATE, false);
                             } else {
                                 execute(new SendMessage(chatId, "Цели с таким номером нет. Выберите цель из списка ниже и перезапишите ее в формате [номер цели] [формулировка цели]. Например, \"4 Дочитать книгу\". Попробуйте снова, исходя из вашего списка с целями:"));
                                 execute(new SendMessage(chatId, goalsService.getData(chatId)));
-                                goalStateManager.setWaitingEdit(chatId, true);
+                                commandStateManager.setWaiting(chatId, CommandState.UPDATE, true);
                             }
-                        } else if (goalStateManager.isWaitingDelete(chatId)) {
+                        } else if (commandStateManager.isWaiting(chatId, CommandState.DELETE_ONE)) {
                             if (goalsService.checkGoalForDelete(chatId, message)) {
                                 goalsService.deleteData(chatId, message);
                                 execute(new SendMessage(chatId, "Цель успешно удалена! Можете убедиться в этом, нажав на кнопку \"Просмотреть\""));
-                                goalStateManager.setWaitingDelete(chatId, false);
+                                commandStateManager.setWaiting(chatId, CommandState.DELETE_ONE, false);
                                 if (goalsService.checkJSON(chatId)) {
                                     goalsService.deleteData(chatId);
                                 }
                             } else {
                                 execute(new SendMessage(chatId, "Цели с таким номером нет. Выберите цель из списка ниже для ее удаления (например, \"4\"). Попробуйте снова, исходя из вашего списка с целями:"));
                                 execute(new SendMessage(chatId, goalsService.getData(chatId)));
-                                goalStateManager.setWaitingDelete(chatId, true);
+                                commandStateManager.setWaiting(chatId, CommandState.DELETE_ONE,true);
                             }
                         } else {
                             // Обработка неизвестных команд

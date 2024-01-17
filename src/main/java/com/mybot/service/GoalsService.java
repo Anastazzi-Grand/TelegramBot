@@ -1,22 +1,18 @@
 package com.mybot.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.mybot.service.statemanager.GoalStateManager;
+import com.mybot.service.statemanager.CommandStateManager;
 import com.mybot.util.DataBaseConnector;
 import org.json.JSONObject;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 
-import java.io.IOException;
 import java.sql.*;
 import java.util.Iterator;
 
 public class GoalsService {
-    private GoalStateManager goalStateManager;
+    private CommandStateManager commandStateManager;
 
-    public GoalsService(GoalStateManager goalStateManager) {
-        this.goalStateManager = goalStateManager;
+    public GoalsService(CommandStateManager commandStateManager) {
+        this.commandStateManager = commandStateManager;
     }
 
     /**
