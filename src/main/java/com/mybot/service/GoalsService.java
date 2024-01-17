@@ -1,41 +1,298 @@
 package com.mybot.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.mybot.service.statemanager.GoalStateManager;
 import com.mybot.util.DataBaseConnector;
+import org.json.JSONObject;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 
-import java.sql.Connection;
+import java.io.IOException;
+import java.sql.*;
+import java.util.Iterator;
 
 public class GoalsService {
-    DataBaseConnector databaseConnector;
+    private GoalStateManager goalStateManager;
 
-    // для просмотра, редактирования, удаления, добавления целей нужно сделать 4 кнопки типа InlineKeyboard
-    // вид таблицы: id - ник, username - имя, goals - цели (JSONB формат)
-    // проверка в таблицах по id: если такое id есть, работаем с json файлом. Если нет, создаем новую таблицу.
-    // возможность смотреть цели (get - read), удалять цели (remove - delete), редактировать (update), добавлять (push - create)
-    // при нажатии на кнопки редактировать и удалить будет срабатывать команда read для просмотра целей для изменения/удаления
-    // в кнопке удалить предусмотреть возможность для удаления всех целей
-    // пользователь может работать только со своими данными
-    // если бд пустая или не существует, при выборе команд должно выводиться сообщение: У вас еще нет записанных целей. Вы можете их записать с помощью кнопки "Создать"
+    public GoalsService(GoalStateManager goalStateManager) {
+        this.goalStateManager = goalStateManager;
+    }
 
-    //работа команды /goal: после ее отправки отображаются 4 inline кнопки (crud)
+    /**
+     * Метод для проверки существования БД по id пользователя.
+     * */
+    public boolean checkBD(String id) {
+        boolean tableExists = false;
+        try (Connection connection = DataBaseConnector.getUsersDBConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            try (ResultSet tables = metaData.getTables(null, null, "goals_" + id, new String[]{"TABLE"})) {
+                if (tables.next()) {
+                    tableExists = true;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.out.println("Ошибка в соединении с БД");
+        }
+        return tableExists;
+    }
 
-    public void handleCallbackData(String callbackData, String chatId) {
-        switch (callbackData) {
-            case "/push":
-                System.out.println("Отработала команда /push");
-                // Логика для добавления цели
-                break;
-            case "/get":
-                System.out.println("Отработала команда /get");
-                // Логика для просмотра цели
-                break;
-            case "/update":
-                System.out.println("Отработала команда /update");
-                // Логика для редактирования цели
-                break;
-            case "/delete":
-                System.out.println("Отработала команда /delete");
-                // Логика для удаления цели
-                break;
+    /**
+     * Метод для создания уникальной БД для пользователя, если таковой еще нет.
+     *
+     * @param message Первая записанная цель
+     * */
+    public void createBD(String id, Message message) {
+        String initialGoal = message.getText();
+        try (Connection connection = DataBaseConnector.getUsersDBConnection();
+             Statement statement = connection.createStatement()) {
+            String tableName = "goals_" + id;
+            String query = String.format("CREATE TABLE %s (id VARCHAR(255) PRIMARY KEY, goals JSONB)", tableName);
+            statement.execute(query);
+            JSONObject initialJSON = new JSONObject();
+            initialJSON.put("1", initialGoal);
+            String initialJSONStr = initialJSON.toString();
+            String insertQuery = String.format("INSERT INTO %s (id, goals) VALUES ('%s', '%s')", tableName, id, initialJSONStr);
+            statement.execute(insertQuery);
+            // Добавляем запись о созданной таблице в общую таблицу пользователей, если необходимо
+        } catch (SQLException e) {
+            // обработка ошибки создания таблицы
+            e.printStackTrace();
+            System.out.println("Ошибка в соединении с БД");
+        }
+    }
+
+    /**
+     * Метод для получения всех целей из БД.
+     * */
+    public String getData(String id) {
+        String tableName = "goals_" + id;
+        String result = "";
+        String selectQuery = String.format("SELECT goals FROM %s", tableName);
+
+        try (Connection connection = DataBaseConnector.getUsersDBConnection();
+             Statement statement = connection.createStatement()) {
+
+            ResultSet resultSet = statement.executeQuery(selectQuery);
+            if (resultSet.next()) {
+                result = resultSet.getString(1);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.out.println("Ошибка в соединении с БД");
+        }
+
+        // Парсинг JSON и форматирование для вывода
+        JSONObject json = new JSONObject(result);
+        StringBuilder formattedData = new StringBuilder();
+        int size = json.length();
+        int count = 0;
+        for (String key : json.keySet()) {
+            count++;
+            formattedData.append(key).append(": ").append(json.getString(key));
+            if (count < size) {
+                formattedData.append("; \n");
+            } else {
+                formattedData.append(".");
+            }
+        }
+        return formattedData.toString();
+    }
+
+    /**
+     * Метод для добавления цели в БД.
+     * */
+    public void pushData(String id, Message message) {
+        String goal = message.getText();
+        if (checkBD(id)) {
+            try (Connection connection = DataBaseConnector.getUsersDBConnection();
+                 Statement statement = connection.createStatement()) {
+                String tableName = "goals_" + id;
+                String selectQuery = String.format("SELECT goals FROM %s", tableName);
+                ResultSet resultSet = statement.executeQuery(selectQuery);
+                if (resultSet.next()) {
+                    // Получаем JSON объект с целями
+                    String goalsJSON = resultSet.getString("goals");
+                    JSONObject goalsObject = new JSONObject(goalsJSON);
+
+                    // Находим последний номер цели
+                    int lastGoalNumber = 1;
+                    Iterator<String> keys = goalsObject.keys();
+                    while (keys.hasNext()) {
+                        int currentNumber = Integer.parseInt(keys.next());
+                        if (currentNumber > lastGoalNumber) {
+                            lastGoalNumber = currentNumber;
+                        }
+                    }
+
+                    // Создаем новую цель с номером на 1 больше, чем последний
+                    int newGoalNumber = lastGoalNumber + 1;
+                    goalsObject.put(String.valueOf(newGoalNumber), goal);
+
+                    // Обновляем цели в базе данных
+                    String updateQuery = String.format("UPDATE %s SET goals='%s'", tableName, goalsObject);
+                    statement.executeUpdate(updateQuery);
+                }
+            } catch (SQLException e) {
+                // Обработка ошибок при обновлении цели
+                e.printStackTrace();
+            }
+        } else {
+            createBD(id, message);
+        }
+    }
+
+    /**
+     * Метод для обновления цели в БД по ее номеру.
+     *
+     * @param id Уникальный номер чата
+     * @param messageN Номер цели, которую нужно перезаписать
+     * @param messageText Новая цель
+     * */
+    public void updateData(String id, Message messageN, Message messageText) {
+        String text = " ";
+        try (Connection connection = DataBaseConnector.getUsersDBConnection();
+             Statement statement = connection.createStatement()) {
+            String tableName = "goals_" + id;
+            String selectQuery = String.format("SELECT goals FROM %s", tableName);
+            ResultSet resultSet = statement.executeQuery(selectQuery);
+
+            String number = messageN.getText().substring(0,1);
+            if (messageText.getText().length() > 1) text = messageText.getText().substring(2);
+            if (resultSet.next()) {
+                String goalsJson = resultSet.getString("goals");
+                JSONObject jsonObject = new JSONObject(goalsJson);
+
+                jsonObject.put(number, text);
+                // Обновляем цели в базе данных
+                String updateQuery = String.format("UPDATE %s SET goals='%s'", tableName, jsonObject);
+                statement.executeUpdate(updateQuery);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Проверка на существование цели с выбранным номером для команды /update.
+     *
+     * @param messageN Первый символ строки, обозначающий номер цели
+     * */
+    public boolean checkGoal(String id, Message messageN) {
+        String number = messageN.getText().substring(0,1);
+        boolean check = false;
+        try (Connection connection = DataBaseConnector.getUsersDBConnection();
+             Statement statement = connection.createStatement()) {
+            String tableName = "goals_" + id;
+            String selectQuery = String.format("SELECT goals FROM %s", tableName);
+            ResultSet resultSet = statement.executeQuery(selectQuery);
+
+            if (resultSet.next()) {
+                String goalsJson = resultSet.getString("goals");
+                JSONObject jsonObject = new JSONObject(goalsJson);
+
+                if (jsonObject.has(number)) {
+                    check = true;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return check;
+    }
+
+    /**
+     * Метод для удаления всех целей из БД.
+     * */
+    public void deleteData(String id) {
+        try (Connection connection = DataBaseConnector.getUsersDBConnection();
+             Statement statement = connection.createStatement()) {
+            String tableName = "goals_" + id;
+            String deleteQuery = String.format("DROP TABLE IF EXISTS %s", tableName);
+            statement.executeUpdate(deleteQuery);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Перегруженный метод для удаления цели из БД по ее номеру.
+     *
+     * @param id уникальный номер чата
+     * @param messageN сообщение, содержащее информацию о цели, которую нужно удалить
+     */
+    public void deleteData(String id, Message messageN) {
+        String number = messageN.getText();
+        try (Connection connection = DataBaseConnector.getUsersDBConnection();
+             Statement statement = connection.createStatement()) {
+            String tableName = "goals_" + id;
+            String selectQuery = String.format("SELECT goals FROM %s", tableName);
+            ResultSet resultSet = statement.executeQuery(selectQuery);
+
+            if (resultSet.next()) {
+                String goalsJson = resultSet.getString("goals");
+                JSONObject jsonObject = new JSONObject(goalsJson);
+
+                // Удаляем цель из JSON
+                jsonObject.remove(number);
+
+                String updateQuery = String.format("UPDATE %s SET goals='%s'", tableName, jsonObject);
+                statement.executeUpdate(updateQuery);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Проверка на существование цели с выбранным номером для команды /deleteOne.
+     *
+     * @param messageN Сообщение, содержащее информацию о цели, которую нужно удалить
+     * */
+    public boolean checkGoalForDelete(String id, Message messageN) {
+        String number = messageN.getText();
+        boolean check = false;
+        try (Connection connection = DataBaseConnector.getUsersDBConnection();
+             Statement statement = connection.createStatement()) {
+            String tableName = "goals_" + id;
+            String selectQuery = String.format("SELECT goals FROM %s", tableName);
+            ResultSet resultSet = statement.executeQuery(selectQuery);
+
+            if (resultSet.next()) {
+                String goalsJson = resultSet.getString("goals");
+                JSONObject jsonObject = new JSONObject(goalsJson);
+
+                if (jsonObject.has(number)) {
+                    check = true;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return check;
+    }
+
+    /**
+     * Проверка на то, что файл JSON не пустой.
+     * */
+    public boolean checkJSON(String id) {
+        try (Connection connection = DataBaseConnector.getUsersDBConnection();
+             Statement statement = connection.createStatement()) {
+            String tableName = "goals_" + id;
+            String selectQuery = String.format("SELECT goals FROM %s", tableName);
+            ResultSet resultSet = statement.executeQuery(selectQuery);
+
+            if (resultSet.next()) {
+                String goalsJson = resultSet.getString("goals");
+                JSONObject jsonObject = new JSONObject(goalsJson);
+                return jsonObject.length() == 0; // Если JSON пустой, вернуть true
+            } else {
+                return true; // Если в базе данных нет записей для данного id, вернуть true
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 }

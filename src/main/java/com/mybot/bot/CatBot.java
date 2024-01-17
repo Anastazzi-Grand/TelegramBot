@@ -1,35 +1,21 @@
 package com.mybot.bot;
 import com.mybot.service.*;
+import com.mybot.service.statemanager.GoalStateManager;
+import com.mybot.service.statemanager.WeatherStateManager;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
-import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
-import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
-import org.telegram.telegrambots.meta.api.objects.InputFile;
-import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
+import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 
 /**
  * Класс, определяющий внешний вид бота.
@@ -51,7 +37,8 @@ public class CatBot extends TelegramLongPollingBot {
     private WeatherStateManager weatherStateManager = new WeatherStateManager();
     private WeatherService weatherService = new WeatherService(weatherStateManager);
 
-    private GoalsService goalsService = new GoalsService();
+    private GoalStateManager goalStateManager = new GoalStateManager();
+    private GoalsService goalsService = new GoalsService(goalStateManager);
 
     @Override
     public String getBotUsername() {
@@ -69,14 +56,63 @@ public class CatBot extends TelegramLongPollingBot {
             CallbackQuery callbackQuery = update.getCallbackQuery();
             String chatId = callbackQuery.getMessage().getChatId().toString();
             String callbackData = callbackQuery.getData();
-            goalsService.handleCallbackData(callbackData, chatId);
+            try {
+                if (goalsService.checkBD(chatId)) {
+                    switch (callbackData) {
+                        case "/push":
+                            goalStateManager.setWaiting(chatId, true);
+                            execute(new SendMessage(chatId, "Отправьте сюда цель, которую хотите сохранить."));
+                            goalStateManager.setWaitingDelete(chatId, false);
+                            goalStateManager.setWaitingEdit(chatId, false);
+                            weatherStateManager.setWaiting(chatId, false);
+                            break;
+                        case "/get":
+                            execute(new SendMessage(chatId, goalsService.getData(chatId)));
+                            break;
+                        case "/update":
+                            execute(new SendMessage(chatId, "Отправьте номер цели и ее новое описание, который хотите обновить в формате [номер цели] [формулировка цели]. Например, \"4 Дочитать книгу\". Можно изменить только те цели, которые есть в списке:"));
+                            execute(new SendMessage(chatId, goalsService.getData(chatId)));
+                            goalStateManager.setWaitingEdit(chatId, true);
+                            goalStateManager.setWaiting(chatId, false);
+                            goalStateManager.setWaitingDelete(chatId, false);
+                            weatherStateManager.setWaiting(chatId, false);
+                            break;
+                        case "/delete":
+                            execute(sendDeleteGoalPanel(chatId));
+                            break;
+                        case "/deleteOne":
+                            execute(new SendMessage(chatId, "Отправьте номер цели, который хотите удалить (например, \"4\". Можно удалить только те цели, которые есть в списке:"));
+                            execute(new SendMessage(chatId, goalsService.getData(chatId)));
+                            goalStateManager.setWaitingDelete(chatId, true);
+                            goalStateManager.setWaiting(chatId, false);
+                            goalStateManager.setWaitingEdit(chatId, false);
+                            weatherStateManager.setWaiting(chatId, false);
+                            break;
+                        case "/deleteAll":
+                            execute(sendDeleteAllGoals(chatId));
+                            break;
+                        case "/yes":
+                            goalsService.deleteData(chatId);
+                            execute(new SendMessage(chatId, "Все данные удалены."));
+                            break;
+                        case "/no":
+                            execute(new SendMessage(chatId, "Все данные сохранены."));
+                            break;
+                    }
+                } else if (!callbackData.equals("/push")) {
+                    execute(new SendMessage(chatId, "У вас еще нет записанных целей. Вы можете внести их с помощью кнопки \"Добавить\"."));
+                } else {
+                    goalStateManager.setWaiting(chatId, true);
+                    execute(new SendMessage(chatId, "Отправьте сюда цель, которую хотите сохранить."));
+                }
+            } catch(TelegramApiException e){
+                throw new RuntimeException(e);
+            }
         }
         else if (update.hasMessage() && update.getMessage().hasText()) {
             Message message = update.getMessage();
             String chatId = message.getChatId().toString();
             String text = message.getText();
-
-            // Вместо проверки text.equals("/start") можно обработать все сообщения
             try {
                 SendPhoto sendPhoto = null;
                 switch (text) {
@@ -84,29 +120,56 @@ public class CatBot extends TelegramLongPollingBot {
                         sendStartMessage(chatId);
                         break;
                     case "Показать котят":
-                        sendPhoto = randomCatPhotosService.sendRandomCatPhoto(message.getChatId().toString());
+                        sendPhoto = randomCatPhotosService.sendRandomCatPhoto(chatId);
                         break;
                     case "Мемы и коты":
-                        sendPhoto = memesAndCatsService.sendPhotoFromBD(message.getChatId().toString());
+                        sendPhoto = memesAndCatsService.sendPhotoFromBD(chatId);
                         break;
                     case "/goal":
-                        System.out.println("Выполнение команды цель");
                         execute(sendGoalsPanel(chatId));
                         break;
                     case "/weather":
-                        System.out.println("WEATHER PRINTED");
                         execute(weatherService.sendIntroduceMessage(chatId));
+                        goalStateManager.setWaitingDelete(chatId, false);
+                        goalStateManager.setWaiting(chatId, false);
+                        goalStateManager.setWaitingEdit(chatId, false);
                         break;
                     default:
-                        if (weatherStateManager.isWaitingForLocation(chatId)) {
+                        if (weatherStateManager.isWaiting(chatId)) {
                             String s = weatherService.sendWeatherMessage(chatId, message);
-                            System.out.println("CATBOT onUpdateReceived s = " + s);
                             if (s.equals("INVALID")) {
                                 execute(weatherService.sendWarningMessage(chatId));
                             } else { // Обработка успешно полученных координат
                                 execute(new SendMessage(chatId, s));
-                                System.out.println("ПОГОДА ИЗВЕСТНА КОНЕЦ ВЫПОЛНЕНИЯ КОМАНДЫ");
-                                weatherStateManager.setWaitingForLocation(chatId, false); // Устанавливаем состояние ожидания ввода в false
+                                weatherStateManager.setWaiting(chatId, false); // Устанавливаем состояние ожидания ввода в false
+                            }
+                        } else if (goalStateManager.isWaiting(chatId)) {
+                            // Обработка ожидания ввода цели после нажатия на кнопку "Добавить" (/push) команды /goal
+                            goalsService.pushData(chatId, message); // Сохранить цель в базу данных
+                            execute(new SendMessage(chatId, "Ваша цель успешно записана. Можете просмотреть свои цели, нажав на кнопку \"Просмотреть\"."));
+                            goalStateManager.setWaiting(chatId, false); // Установить состояние ожидания ввода цели в false
+                        } else if (goalStateManager.isWaitingEdit(chatId)){
+                            if (goalsService.checkGoal(chatId, message)) {
+                                goalsService.updateData(chatId, message, message);
+                                execute(new SendMessage(chatId, "Цель успешно изменена! Можете убедиться в этом, нажав на кнопку \"Просмотреть\""));
+                                goalStateManager.setWaitingEdit(chatId, false);
+                            } else {
+                                execute(new SendMessage(chatId, "Цели с таким номером нет. Выберите цель из списка ниже и перезапишите ее в формате [номер цели] [формулировка цели]. Например, \"4 Дочитать книгу\". Попробуйте снова, исходя из вашего списка с целями:"));
+                                execute(new SendMessage(chatId, goalsService.getData(chatId)));
+                                goalStateManager.setWaitingEdit(chatId, true);
+                            }
+                        } else if (goalStateManager.isWaitingDelete(chatId)) {
+                            if (goalsService.checkGoalForDelete(chatId, message)) {
+                                goalsService.deleteData(chatId, message);
+                                execute(new SendMessage(chatId, "Цель успешно удалена! Можете убедиться в этом, нажав на кнопку \"Просмотреть\""));
+                                goalStateManager.setWaitingDelete(chatId, false);
+                                if (goalsService.checkJSON(chatId)) {
+                                    goalsService.deleteData(chatId);
+                                }
+                            } else {
+                                execute(new SendMessage(chatId, "Цели с таким номером нет. Выберите цель из списка ниже для ее удаления (например, \"4\"). Попробуйте снова, исходя из вашего списка с целями:"));
+                                execute(new SendMessage(chatId, goalsService.getData(chatId)));
+                                goalStateManager.setWaitingDelete(chatId, true);
                             }
                         } else {
                             // Обработка неизвестных команд
@@ -169,7 +232,7 @@ public class CatBot extends TelegramLongPollingBot {
     private SendMessage sendGoalsPanel(String chatId) {
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(chatId);
-        sendMessage.setText("Здесь вы можете хранить свои цели или планы на будущее. Выберите одну из команд ниже для редактирования целей.");
+        sendMessage.setText("Здесь вы можете хранить свои цели или планы на будущее. Записывайте по одной цели за раз. Отредактируйте их с помощью команд ниже.");
 
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
 
@@ -197,6 +260,66 @@ public class CatBot extends TelegramLongPollingBot {
 
         rowsInline.add(rowInline1);
         rowsInline.add(rowInline2);
+
+        markup.setKeyboard(rowsInline);
+        sendMessage.setReplyMarkup(markup);
+
+        return sendMessage;
+    }
+
+    /**
+     * Метод для отображения кнопок при выборе команды /delete
+     * */
+    private SendMessage sendDeleteGoalPanel(String chatId) {
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(chatId);
+        sendMessage.setText("Вы можете удалить либо одну цель, либо все сразу:");
+
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+
+        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+
+        List<InlineKeyboardButton> rowInline1 = new ArrayList<>();
+        InlineKeyboardButton inlineKeyboardButton1 = new InlineKeyboardButton();
+        inlineKeyboardButton1.setText("Удалить 1 цель");
+        inlineKeyboardButton1.setCallbackData("/deleteOne");
+        InlineKeyboardButton inlineKeyboardButton2 = new InlineKeyboardButton();
+        inlineKeyboardButton2.setText("Удалить все цели");
+        inlineKeyboardButton2.setCallbackData("/deleteAll");
+        rowInline1.add(inlineKeyboardButton1);
+        rowInline1.add(inlineKeyboardButton2);
+
+        rowsInline.add(rowInline1);
+
+        markup.setKeyboard(rowsInline);
+        sendMessage.setReplyMarkup(markup);
+
+        return sendMessage;
+    }
+
+    /**
+     * Метод для отображения кнопок при выборе команды /deleteAll
+     * */
+    private SendMessage sendDeleteAllGoals(String chatId) {
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(chatId);
+        sendMessage.setText("Вы уверены, что хотите удалить все цели?");
+
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+
+        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+
+        List<InlineKeyboardButton> rowInline1 = new ArrayList<>();
+        InlineKeyboardButton inlineKeyboardButton1 = new InlineKeyboardButton();
+        inlineKeyboardButton1.setText("Да");
+        inlineKeyboardButton1.setCallbackData("/yes");
+        InlineKeyboardButton inlineKeyboardButton2 = new InlineKeyboardButton();
+        inlineKeyboardButton2.setText("Нет");
+        inlineKeyboardButton2.setCallbackData("/no");
+        rowInline1.add(inlineKeyboardButton1);
+        rowInline1.add(inlineKeyboardButton2);
+
+        rowsInline.add(rowInline1);
 
         markup.setKeyboard(rowsInline);
         sendMessage.setReplyMarkup(markup);

@@ -7,14 +7,11 @@ import org.telegram.telegrambots.meta.api.objects.InputFile;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
 
 /**
  * Класс, реализущий логику кнопки "Мемы и коты"
  * */
 public class MemesAndCatsService {
-
-    DataBaseConnector databaseConnector;
 
     /**
      * Метод соединяет с БД и возвращает рандомную ссылку на картинку типа String.
@@ -22,7 +19,7 @@ public class MemesAndCatsService {
     private String getRandomPhotoFromBD() {
         String photoUrl = null;
         try {
-            Connection connection = databaseConnector.getConnection(); // Получаем соединение с базой данных
+            Connection connection = DataBaseConnector.getCatsDBConnection(); // Получаем соединение с базой данных
             PreparedStatement statement = connection.prepareStatement("SELECT image_path FROM memes_and_cats ORDER BY RANDOM() LIMIT 1");
             ResultSet resultSet = statement.executeQuery(); // Запрос на выбор рандомной фотографии из базы данных
 

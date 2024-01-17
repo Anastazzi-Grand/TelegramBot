@@ -3,11 +3,9 @@ package com.mybot.service;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.mybot.bot.CatBot;
-import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import com.mybot.service.statemanager.WeatherStateManager;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -15,7 +13,6 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Properties;
 
 public class WeatherService {
     static {
@@ -39,7 +36,7 @@ public class WeatherService {
      * */
     public SendMessage sendIntroduceMessage(String chatId) {
         SendMessage sendMessage = new SendMessage(chatId, "Введите название региона/города, в котором хотите узнать погоду на сегодня (например, Московская область).");
-        weatherStateManager.setWaitingForLocation(chatId, true); // Устанавливаем состояние ожидания ввода
+        weatherStateManager.setWaiting(chatId, true); // Устанавливаем состояние ожидания ввода
         return sendMessage;
     }
 
@@ -52,8 +49,8 @@ public class WeatherService {
      * */
     private String processUserMessage(String chatId, Message message) {
         String location = "";
-        if (weatherStateManager.isWaitingForLocation(chatId)) {
-            weatherStateManager.setWaitingForLocation(chatId, false);
+        if (weatherStateManager.isWaiting(chatId)) {
+            weatherStateManager.setWaiting(chatId, false);
             location = message.getText(); // Обработка ввода названия региона/города
         }
         System.out.println("ОТРАБОТАЛ МЕТОД processUserMessage");
@@ -93,7 +90,7 @@ public class WeatherService {
                             .getAsJsonObject("Point").get("pos").getAsString();
                     System.out.println("МЕТОД getYandexGeocoder НАЗВАНИЕ" + location);
                     System.out.println("МЕТОД getYandexGeocoder КООРДИНАТЫ" + coordinates);
-                    weatherStateManager.setWaitingForLocation(chatId, false);
+                    weatherStateManager.setWaiting(chatId, false);
                     return coordinates + " " + location;
                 } else {
                     System.out.println("СРАБОТАЛА ОШИБКА");
@@ -112,7 +109,7 @@ public class WeatherService {
     /**
      * Метод отправляет координаты региона в Яндекс Погоду для получения сведений о погоде.
      * */
-    public String getYandexWeather(String chatId, Message message) {
+    private String getYandexWeather(String chatId, Message message) {
         String coordinates = getYandexGeocoder(chatId, message);
 
         if (!coordinates.equals("INVALID")) {
@@ -164,7 +161,7 @@ public class WeatherService {
             }
         } else {
             System.out.println("ОТРАБОТАЛ БЛОК else В МЕТОДЕ getYandexWeather");
-            weatherStateManager.setWaitingForLocation(chatId, true);
+            weatherStateManager.setWaiting(chatId, true);
             return "INVALID";
         }
     }
@@ -187,7 +184,7 @@ public class WeatherService {
      * */
     public SendMessage sendWarningMessage(String chatId) {
         SendMessage sendMessage = new SendMessage(chatId, "Введено неверное название города/региона. Попробуйте отправить сообщение снова (например, Москва).");
-        weatherStateManager.setWaitingForLocation(chatId, true); // Устанавливаем состояние ожидания ввода
+        weatherStateManager.setWaiting(chatId, true); // Устанавливаем состояние ожидания ввода
         System.out.println("ОТРАБОТАЛ МЕТОД sendWarningMessage");
         return sendMessage;
     }

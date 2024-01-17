@@ -13,7 +13,7 @@ import java.sql.Statement;
 
 public class Main {
     public static void main(String[] args) {
-        try (Connection connection = DataBaseConnector.getConnection()) {
+        try (Connection connection = DataBaseConnector.getCatsDBConnection()) {
             System.out.println("Успешное соединение с базой данных");
             TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
             telegramBotsApi.registerBot(new CatBot());
