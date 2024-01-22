@@ -1,4 +1,4 @@
-package com.mybot.service.statemanager;
+package com.mybot.service.state_manager;
 
 import java.util.Collections;
 import java.util.HashMap;

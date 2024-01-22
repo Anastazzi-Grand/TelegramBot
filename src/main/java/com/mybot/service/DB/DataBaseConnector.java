@@ -1,4 +1,4 @@
-package com.mybot.util;
+package com.mybot.service.DB;
 
 import com.mybot.service.ConnectionService;
 
@@ -9,27 +9,26 @@ import java.sql.SQLException;
 /**
  * Класс для соединения с БД.
  * */
-public class DataBaseConnector implements ConnectionService {
+public class DataBaseConnector {
 
     /**
-     * Метод устанавливает соединение с БД  по ссылке, имени пользователя и паролю.
+     * Метод устанавливает соединение с БД по ссылке, имени пользователя и паролю.
      * */
-    public static Connection getCatsDBConnection() throws SQLException {
+    private static Connection getDBConnection(String urlKey) throws SQLException {
         ConnectionService.getConnect();
-        String url = ConnectionService.properties.getProperty("db.url");
+        String url = ConnectionService.properties.getProperty(urlKey);
         String user = ConnectionService.properties.getProperty("db.user");
         String password = ConnectionService.properties.getProperty("db.password");
 
         return DriverManager.getConnection(url, user, password);
     }
 
-    public static Connection getUsersDBConnection() throws SQLException {
-        ConnectionService.getConnect();
-        String url = ConnectionService.properties.getProperty("db.url_users");
-        String user = ConnectionService.properties.getProperty("db.user");
-        String password = ConnectionService.properties.getProperty("db.password");
+    public static Connection getCatsDBConnection() throws SQLException {
+        return getDBConnection("db.url");
+    }
 
-        return DriverManager.getConnection(url, user, password);
+    public static Connection getUsersDBConnection() throws SQLException {
+        return getDBConnection("db.url_users");
     }
 }
 /*

@@ -1,7 +1,7 @@
 package com.mybot;
 
 import com.mybot.bot.CatBot;
-import com.mybot.util.DataBaseConnector;
+import com.mybot.service.DB.DataBaseConnector;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;

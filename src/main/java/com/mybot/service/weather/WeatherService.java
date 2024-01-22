@@ -1,13 +1,14 @@
-package com.mybot.service;
+package com.mybot.service.weather;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.mybot.service.statemanager.CommandState;
-import com.mybot.service.statemanager.CommandStateManager;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import com.mybot.service.ConnectionService;
+import com.mybot.service.state_manager.CommandState;
+import com.mybot.service.state_manager.CommandStateManager;
 import org.telegram.telegrambots.meta.api.objects.Message;
 
+import javax.crypto.spec.PSource;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -30,18 +31,6 @@ public class WeatherService {
     }
 
     /**
-     * Метод для отправки вводного сообщения для команды /weather.
-     * Возвращает сообщение типа SendMessage.
-     *
-     * @param chatId
-     * */
-    public SendMessage sendIntroduceMessage(String chatId) {
-        SendMessage sendMessage = new SendMessage(chatId, "Введите название региона/города, в котором хотите узнать погоду на сегодня (например, Московская область).");
-        commandStateManager.setWaiting(chatId, CommandState.WEATHER, true); // Устанавливаем состояние ожидания ввода
-        return sendMessage;
-    }
-
-    /**
      * Метод для считывания сообщения пользователя.
      * Возвращает строку.
      *
@@ -54,7 +43,6 @@ public class WeatherService {
             commandStateManager.setWaiting(chatId, CommandState.WEATHER, false);
             location = message.getText(); // Обработка ввода названия региона/города
         }
-        System.out.println("ОТРАБОТАЛ МЕТОД processUserMessage");
 
         return location;
     }
@@ -65,7 +53,6 @@ public class WeatherService {
     private String getYandexGeocoder(String chatId, Message message) {
         try {
             String location = processUserMessage(chatId, message).toLowerCase();
-            System.out.println("ГОРОД В МЕТОДЕ getYandexGeocoder " + location);
             if (!location.isEmpty()) {
                 String encodedLocation = URLEncoder.encode(location, "UTF-8");
                 URL url = new URL("https://geocode-maps.yandex.ru/1.x/?apikey=" + YANDEX_GEOCODER + "&geocode=" + encodedLocation + "&format=json");
@@ -92,18 +79,16 @@ public class WeatherService {
                     System.out.println("МЕТОД getYandexGeocoder НАЗВАНИЕ" + location);
                     System.out.println("МЕТОД getYandexGeocoder КООРДИНАТЫ" + coordinates);
                     commandStateManager.setWaiting(chatId, CommandState.WEATHER, false);
+                    System.out.println("COORDINATES " + coordinates);
                     return coordinates + " " + location;
                 } else {
-                    System.out.println("СРАБОТАЛА ОШИБКА");
                     return "INVALID";
                 }
             }
-            System.out.println("ОТРАБОТАЛ МЕТОД getYandexGeocoder В БЛОКЕ TRY");
         } catch (IOException e) {
             e.printStackTrace();
             return "INVALID";
         }
-       // System.out.println("ОТРАБОТАЛ МЕТОД getYandexGeocoder");
         return "INVALID";
     }
 
@@ -115,8 +100,7 @@ public class WeatherService {
 
         if (!coordinates.equals("INVALID")) {
             String apiUrl = "https://api.weather.yandex.ru/v2/forecast?lat=" + coordinates.split(" ")[1] + "&lon=" + coordinates.split(" ")[0] + "&lang=ru_RU";
-            String loc = coordinates.split(" ")[2];
-            System.out.println("ГОРОД В МЕТОДЕ getYandexWeather " + loc);
+            String loc = coordinates.substring(coordinates.split(" ")[1].length() + coordinates.split(" ")[0].length() + 2);
 
             try {
                 // Выполняем HTTP-запрос к API Яндекс Погоды
@@ -153,15 +137,12 @@ public class WeatherService {
                         " градусов, " + condition + ", скорость ветра " + windSpeed +
                         " м/с, влажность воздуха " + humidity + "%";
 
-                System.out.println("ОТРАБОТАЛ МЕТОД getYandexWeather В БЛОКЕ TRY");
                 return weatherReport;
             } catch (IOException e) {
                 e.printStackTrace();
-                System.out.println("ОТРАБОТАЛ МЕТОД getYandexWeather В БЛОКЕ CATCH");
                 return "INVALID";
             }
         } else {
-            System.out.println("ОТРАБОТАЛ БЛОК else В МЕТОДЕ getYandexWeather");
             commandStateManager.setWaiting(chatId, CommandState.WEATHER, true);
             return "INVALID";
         }
@@ -178,25 +159,10 @@ public class WeatherService {
     }
 
     /**
-     * Метод для отправки предупреждающего сообщения в случае неверно введенного названия города/региона.
-     * Возвращает сообщение типа SendMessage.
-     *
-     * @param chatId
-     * */
-    public SendMessage sendWarningMessage(String chatId) {
-        SendMessage sendMessage = new SendMessage(chatId, "Введено неверное название города/региона. Попробуйте отправить сообщение снова (например, Москва).");
-        commandStateManager.setWaiting(chatId, CommandState.WEATHER, true); // Устанавливаем состояние ожидания ввода
-        System.out.println("ОТРАБОТАЛ МЕТОД sendWarningMessage");
-        return sendMessage;
-    }
-
-    /**
      * Метод отправляет информацию о погоде в заданном регионе/городе.
      * */
     public String sendWeatherMessage(String chatId, Message message) {
-        String t = getYandexWeather(chatId, message);
-        System.out.println("ОТРАБОТАЛ МЕТОД sendWeatherMessage");
 
-        return t;
+        return getYandexWeather(chatId, message);
     }
 }

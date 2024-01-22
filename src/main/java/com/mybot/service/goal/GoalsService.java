@@ -1,12 +1,14 @@
-package com.mybot.service;
+package com.mybot.service.goal;
 
-import com.mybot.service.statemanager.CommandStateManager;
-import com.mybot.util.DataBaseConnector;
+import com.mybot.service.DB.DataBaseConnector;
+import com.mybot.service.state_manager.CommandStateManager;
 import org.json.JSONObject;
 import org.telegram.telegrambots.meta.api.objects.Message;
 
 import java.sql.*;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class GoalsService {
     private CommandStateManager commandStateManager;
@@ -35,7 +37,7 @@ public class GoalsService {
     }
 
     /**
-     * Метод для создания уникальной БД для пользователя, если таковой еще нет.
+     * Метод для создания уникальной таблицы в БД для пользователя, если таковой еще нет.
      *
      * @param message Первая записанная цель
      * */
@@ -74,7 +76,6 @@ public class GoalsService {
             if (resultSet.next()) {
                 result = resultSet.getString(1);
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
             System.out.println("Ошибка в соединении с БД");
@@ -82,17 +83,17 @@ public class GoalsService {
 
         // Парсинг JSON и форматирование для вывода
         JSONObject json = new JSONObject(result);
-        StringBuilder formattedData = new StringBuilder();
-        int size = json.length();
-        int count = 0;
+
+        // Создаем TreeMap и используем его для сортировки ключей по возрастанию
+        Map<Integer, String> sortedJson = new TreeMap<>();
         for (String key : json.keySet()) {
-            count++;
-            formattedData.append(key).append(": ").append(json.getString(key));
-            if (count < size) {
-                formattedData.append("; \n");
-            } else {
-                formattedData.append(".");
-            }
+            sortedJson.put(Integer.parseInt(key), json.getString(key));
+        }
+
+        StringBuilder formattedData = new StringBuilder();
+        for (Map.Entry<Integer, String> entry : sortedJson.entrySet()) {
+            formattedData.append(entry.getKey()).append(": ").append(entry.getValue());
+            formattedData.append("; \n");
         }
         return formattedData.toString();
     }
@@ -115,9 +116,8 @@ public class GoalsService {
 
                     // Находим последний номер цели
                     int lastGoalNumber = 1;
-                    Iterator<String> keys = goalsObject.keys();
-                    while (keys.hasNext()) {
-                        int currentNumber = Integer.parseInt(keys.next());
+                    for (String key : goalsObject.keySet()) {
+                        int currentNumber = Integer.parseInt(key);
                         if (currentNumber > lastGoalNumber) {
                             lastGoalNumber = currentNumber;
                         }
@@ -127,8 +127,14 @@ public class GoalsService {
                     int newGoalNumber = lastGoalNumber + 1;
                     goalsObject.put(String.valueOf(newGoalNumber), goal);
 
+                    // Заменяем JSONObject на TreeMap для сохранения порядка ключей
+                    Map<String, String> sortedGoals = new TreeMap<>();
+                    for (String key : goalsObject.keySet()) {
+                        sortedGoals.put(key, goalsObject.getString(key));
+                    }
+
                     // Обновляем цели в базе данных
-                    String updateQuery = String.format("UPDATE %s SET goals='%s'", tableName, goalsObject);
+                    String updateQuery = String.format("UPDATE %s SET goals='%s'", tableName, new JSONObject(sortedGoals).toString());
                     statement.executeUpdate(updateQuery);
                 }
             } catch (SQLException e) {
@@ -136,6 +142,7 @@ public class GoalsService {
                 e.printStackTrace();
             }
         } else {
+            // Если таблицы для пользователя еще не существует, то она создается и сразу в нее записывается первая цель
             createBD(id, message);
         }
     }
@@ -169,34 +176,6 @@ public class GoalsService {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    /**
-     * Проверка на существование цели с выбранным номером для команды /update.
-     *
-     * @param messageN Первый символ строки, обозначающий номер цели
-     * */
-    public boolean checkGoal(String id, Message messageN) {
-        String number = messageN.getText().substring(0,1);
-        boolean check = false;
-        try (Connection connection = DataBaseConnector.getUsersDBConnection();
-             Statement statement = connection.createStatement()) {
-            String tableName = "goals_" + id;
-            String selectQuery = String.format("SELECT goals FROM %s", tableName);
-            ResultSet resultSet = statement.executeQuery(selectQuery);
-
-            if (resultSet.next()) {
-                String goalsJson = resultSet.getString("goals");
-                JSONObject jsonObject = new JSONObject(goalsJson);
-
-                if (jsonObject.has(number)) {
-                    check = true;
-                }
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-        return check;
     }
 
     /**
@@ -243,12 +222,19 @@ public class GoalsService {
     }
 
     /**
-     * Проверка на существование цели с выбранным номером для команды /deleteOne.
+     * Проверка на существование цели с выбранным номером.
      *
-     * @param messageN Сообщение, содержащее информацию о цели, которую нужно удалить
+     * @param message Сообщение, содержащее информацию о цели, которую нужно редактировать/удалить
+     * @param forUpdate true - для команды /update, false - для команды /deleteOne
      * */
-    public boolean checkGoalForDelete(String id, Message messageN) {
-        String number = messageN.getText();
+    public boolean checkGoal(String id, Message message, boolean forUpdate) {
+        String number;
+        if (forUpdate) {
+            number = message.getText().substring(0, 1);
+        } else {
+            number = message.getText();
+        }
+
         boolean check = false;
         try (Connection connection = DataBaseConnector.getUsersDBConnection();
              Statement statement = connection.createStatement()) {
