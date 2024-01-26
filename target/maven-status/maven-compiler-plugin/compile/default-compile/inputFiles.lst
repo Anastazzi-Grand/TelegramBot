@@ -1,6 +1,14 @@
-C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\util\DataBaseConnector.java
 C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\ConnectionService.java
-C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\Main.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\CatBotService.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\goal\GoalsService.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\weather\Weather.java
 C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\RandomCatPhotosService.java
-C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\bot\CatBot.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\goal\Goal.java
 C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\MemesAndCatsService.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\Main.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\state_manager\CommandState.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\weather\WeatherService.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\bot\CatBot.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\state_manager\WaitingStateManager.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\state_manager\CommandStateManager.java
+C:\Users\Anastazzi\IdeaProjects\TelegramBot\src\main\java\com\mybot\service\DB\DataBaseConnector.java

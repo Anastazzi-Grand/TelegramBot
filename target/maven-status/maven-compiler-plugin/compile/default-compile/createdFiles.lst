@@ -1,6 +1,14 @@
 com\mybot\bot\CatBot.class
-com\mybot\util\DataBaseConnector.class
+com\mybot\service\weather\Weather.class
+com\mybot\service\DB\DataBaseConnector.class
+com\mybot\service\state_manager\CommandState.class
 com\mybot\service\ConnectionService.class
+com\mybot\service\goal\Goal.class
+com\mybot\service\state_manager\WaitingStateManager.class
+com\mybot\service\weather\WeatherService.class
+com\mybot\service\CatBotService.class
 com\mybot\Main.class
 com\mybot\service\RandomCatPhotosService.class
+com\mybot\service\state_manager\CommandStateManager.class
 com\mybot\service\MemesAndCatsService.class
+com\mybot\service\goal\GoalsService.class
